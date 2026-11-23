@@ -42,7 +42,7 @@ psql -U postgres -c "CREATE DATABASE sweety_test OWNER sweety;"
 
 ```bash
 cd server
-cp .env.example .env        # edit JWT_SECRET / DATABASE_URL if needed (Windows cmd: copy .env.example .env)
+cp .env        # edit JWT_SECRET / DATABASE_URL
 npm install
 npm run migrate             # creates tables (idempotent)
 npm run seed                # demo user + ~75 days of sample readings
@@ -66,7 +66,7 @@ cd server && npm test       # unit tests always run; API integration tests run w
 cd client && npm test       # React Testing Library tests for the reading form and auth screens
 ```
 
-`TEST_DATABASE_URL` is in `server/.env.example`. ⚠️ The integration tests **truncate** the tables of that database — never point it at real data.
+`TEST_DATABASE_URL` is in `server/.env`. ⚠️ The integration tests **truncate** the tables of that database — never point it at real data.
 Without it, the integration suite is skipped (not failed).
 
 ## API
