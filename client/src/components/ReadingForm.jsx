@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api';
-import { SLOTS, MIN_VALUE, MAX_VALUE, todayLocal } from '../constants';
+import { MAX_VALUE, MIN_VALUE, SLOTS, todayLocal } from '../constants';
 import { validateReading } from '../validate';
 
 export default function ReadingForm({ initial, onSaved, onCancel }) {
@@ -13,6 +13,12 @@ export default function ReadingForm({ initial, onSaved, onCancel }) {
   const [serverError, setServerError] = useState('');
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  function clearValue() {
+    setForm((f) => ({ ...f, value: '' }));
+    setErrors({});
+    setServerError('');
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -57,6 +63,7 @@ export default function ReadingForm({ initial, onSaved, onCancel }) {
       {serverError && <p className="error" role="alert">{serverError}</p>}
       <div className="actions">
         <button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save reading'}</button>
+        <button type="button" className="secondary" onClick={clearValue} disabled={busy}>Clear</button>
         {initial && <button type="button" className="secondary" onClick={onCancel}>Cancel</button>}
       </div>
     </form>

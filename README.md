@@ -7,8 +7,8 @@ readings a day and views daily, month-to-date and previous-month reports.
 
 ## Features
 
-- Sign up / log in (passwords hashed with bcrypt, JWT auth), **forgot / reset password**, show-password toggle and confirm-password on signup. Users only ever see their own readings.
-- Add, view, edit, delete readings (date, slot, value in mg/dl) with server **and** client validation.
+- Sign up / log in (passwords hashed with bcrypt, JWT access + refresh tokens), **forgot / reset password**, show-password toggle and confirm-password on signup. Users only ever see their own readings.
+- Add, view, edit, delete readings (date, slot, value in mg/dl) with server **and** client validation, plus a Clear button on the form.
 - Reports: highest, lowest, average (1 decimal) and count for Daily / Month-to-date / Previous month, plus a daily readings list and friendly empty states.
 - Bonus done: pagination on `GET /api/readings`, line chart (Recharts), docker-compose for PostgreSQL, frontend tests with React Testing Library.
 
@@ -42,7 +42,7 @@ psql -U postgres -c "CREATE DATABASE sweety_test OWNER sweety;"
 
 ```bash
 cd server
-cp .env        # edit JWT_SECRET / DATABASE_URL
+cp .env.example .env        # Windows cmd: copy .env.example .env  (then edit JWT_SECRET / DATABASE_URL if needed)
 npm install
 npm run migrate             # creates tables (idempotent)
 npm run seed                # demo user + ~75 days of sample readings
@@ -63,20 +63,20 @@ npm run dev                 # http://localhost:5173  (proxies /api to :4000)
 
 ```bash
 cd server && npm test       # unit tests always run; API integration tests run when TEST_DATABASE_URL is set
-cd client && npm test       # React Testing Library tests for the reading form and auth screens
+cd client && npm test       # React Testing Library tests for the reading form, auth screens and API client
 ```
 
-`TEST_DATABASE_URL` is in `server/.env`. ⚠️ The integration tests **truncate** the tables of that database — never point it at real data.
+`TEST_DATABASE_URL` is listed in `server/.env.example`. ⚠️ The integration tests **truncate** the tables of that database — never point it at real data.
 Without it, the integration suite is skipped (not failed).
 
 ## API
 
-All routes except `/auth/*` (other than `/auth/me`) need `Authorization: Bearer <token>`.
+All routes except `/auth/*` (other than `/auth/me`) need `Authorization: Bearer <access token>`.
 
 | Method | Route | Notes |
 |---|---|---|
-| POST | `/api/auth/register` | `{ name, email, password }` → `{ token, user }` |
-| POST | `/api/auth/login` | `{ email, password }` → `{ token, user }` |
+| POST | `/api/auth/register` | `{ name, email, password }` → `{ token, user }` + refresh cookie |
+| POST | `/api/auth/login` | `{ email, password }` → `{ token, user }` + refresh cookie |
 | POST | `/api/auth/refresh` | uses the httpOnly refresh cookie → new access token + rotated refresh cookie |
 | POST | `/api/auth/logout` | revokes the refresh token, clears the cookie (204) |
 | GET | `/api/auth/me` | current user |
@@ -107,13 +107,16 @@ Errors are `{ "message": "...", "errors": { field: "..." } }`; validation → `4
 2. No email server is configured, so the server **prints the reset link in its terminal** (`services/mailer.js`; swap in nodemailer/SES/SendGrid for real email).
 3. Open the link (`http://localhost:5173/?reset=<token>`), choose a new password, then log in.
 
+Reset links expire in 30 minutes, work once, and sign out all devices.
+
 ## Security
 
 | Area | What is done |
 |---|---|
 | Passwords | bcrypt (cost 10); min 8 chars with a letter and a number; max 72 (bcrypt limit); never stored or logged in plain text |
 | Sessions | Short-lived **access token** (JWT, HS256 only, 15 min) kept in memory and sent as `Authorization: Bearer`; long-lived **refresh token** (random, 7 days) in an `httpOnly`, `SameSite=Lax`, path-limited cookie (`Secure` in production). `JWT_SECRET` is mandatory in production |
-| Refresh rotation | Each refresh token works once and is replaced on use; only its SHA-256 hash is stored. Reusing an old token revokes all of that user's sessions. Logout and password reset revoke refresh tokens || Login | Same error for wrong email or password; constant-time compare so timing doesn't reveal which emails exist |
+| Refresh rotation | Each refresh token works once and is replaced on use; only its SHA-256 hash is stored. Reusing an old token revokes all of that user's sessions. Logout and password reset revoke refresh tokens |
+| Login | Same error for wrong email or password; constant-time compare so timing doesn't reveal which emails exist |
 | Password reset | 256-bit random token; only its SHA-256 hash is stored; single-use, 30-minute expiry; a new request invalidates the old link; generic response so emails can't be enumerated |
 | Brute force | Rate limit on login, register, forgot and reset (30 requests / 15 min per IP) via `express-rate-limit` |
 | HTTP hardening | `helmet` security headers, CORS limited to `CLIENT_ORIGIN`, JSON body limit 10 KB |

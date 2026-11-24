@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
-import ReadingForm from './ReadingForm';
 import { api } from '../api';
 import { todayLocal } from '../constants';
+import ReadingForm from './ReadingForm';
 
 vi.mock('../api', () => ({ api: { createReading: vi.fn(), updateReading: vi.fn() } }));
 
@@ -54,4 +54,16 @@ test('displays the server error message (e.g. duplicate slot)', async () => {
   await userEvent.type(valueInput(), '120');
   await userEvent.click(saveButton());
   expect(await screen.findByText('You already have a Morning reading for this date.')).toBeInTheDocument();
+});
+
+
+test('Clear empties the glucose value and removes errors', async () => {
+  render(<ReadingForm />);
+  await userEvent.type(valueInput(), '30');
+  await userEvent.click(saveButton());
+  expect(screen.getByText('Value must be between 40 and 600 mg/dl.')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: 'Clear' }));
+  expect(valueInput()).toHaveValue(null);
+  expect(screen.queryByText('Value must be between 40 and 600 mg/dl.')).not.toBeInTheDocument();
 });
